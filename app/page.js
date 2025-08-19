@@ -3,15 +3,10 @@ import React, { useMemo, useState } from "react";
 
 // ----------------------------------------------------------------------------
 // Minimal MVP: client-side search over a small demo dataset
-// - Type a material (e.g., "silicone", "screws 5x50", "cement")
-// - Results show cheapest -> most expensive across retailers
-// - This is front-end only for demonstration. In production, swap the
-//   in-memory data for a server/API that fetches and normalises live prices.
 // ----------------------------------------------------------------------------
 
 const GBP = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 
-// Keep the shape here as plain JSDoc for editor hints without TS tooling.
 /** @typedef {{
  *  id: string,
  *  productId: string,
@@ -227,7 +222,8 @@ export default function App() {
   const results = useSearch(query);
 
   const suggestions = ["silicone", "screws 5x50", "cement 25kg", "mdf 18mm"];
-  const placeholder = 'Search materials e.g. "silicone" or "screws 5x50"';
+  // Simplified placeholder (no quotes)
+  const placeholder = "Search materials e.g. silicone or screws 5x50";
 
   return (
     <div className="min-h-screen w-full bg-gray-50">
@@ -274,7 +270,7 @@ export default function App() {
           results.length ? (
             <>
               <div className="mb-3 text-sm text-gray-600">
-                Showing {results.length} offer{results.length !== 1 ? "s" : ""} for <span className="font-medium">"{query}"</span> sorted by price.
+                Showing {results.length} offer{results.length !== 1 ? "s" : ""} for <q className="font-medium">{query}</q> sorted by price.
               </div>
               <div className="grid gap-3">
                 {results.map((o) => (
@@ -285,7 +281,7 @@ export default function App() {
             </>
           ) : (
             <div className="rounded-2xl border bg-white p-6 text-center text-gray-600">
-              No matches. Try a simpler term like <button className="underline" onClick={() => setQuery("silicone")}>"silicone"</button> or <button className="underline" onClick={() => setQuery("cement 25kg")}>"cement 25kg"</button>.
+              No matches. Try a simpler term like <button className="underline" onClick={() => setQuery("silicone")}>silicone</button> or <button className="underline" onClick={() => setQuery("cement 25kg")}>cement 25kg</button>.
             </div>
           )
         ) : (
@@ -293,7 +289,7 @@ export default function App() {
             <p className="font-medium mb-1">How it works</p>
             <ul className="list-disc ml-5 space-y-1 text-sm">
               <li>Type a material in the search bar.</li>
-              <li>We list matching offers from retailers like Screwfix, B&Q and Travis Perkins.</li>
+              <li>We list matching offers from retailers like Screwfix, B&amp;Q and Travis Perkins.</li>
               <li>Sorted from least expensive to most expensive.</li>
             </ul>
           </div>
@@ -308,9 +304,7 @@ export default function App() {
 }
 
 // ---------------------------------------------------------------------------
-// Runtime tests (dev only) - these are NOT end-to-end tests,
-// but they validate the search and sorting logic without a test runner.
-// They will run in the browser console in development builds.
+// Runtime tests (dev only)
 // ---------------------------------------------------------------------------
 function runDevTests() {
   const tests = [];
@@ -367,8 +361,6 @@ function runDevTests() {
   for (const t of tests) {
     try {
       t.fn();
-      // If no assertion threw, consider it passed
-      // (console.assert still prints, so we also mark explicitly)
       passed += 1;
     } catch (err) {
       console.error("Test failed:", t.name, err);
