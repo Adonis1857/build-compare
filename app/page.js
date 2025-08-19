@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 
 // ----------------------------------------------------------------------------
 // Minimal MVP: client-side search over a small demo dataset
@@ -177,11 +177,6 @@ function searchOffers(query, offers = OFFERS) {
   return matches.sort((a, b) => a.price - b.price);
 }
 
-function useSearch(query) {
-  const q = String(query || "");
-  return useMemo(() => searchOffers(q), [q]);
-}
-
 function Badge({ children }) {
   return (
     <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-gray-600">
@@ -219,11 +214,40 @@ function ResultCard({ offer }) {
 
 export default function App() {
   const [query, setQuery] = useState("");
-  const results = useSearch(query);
+
+  // Results now come from the API (with local fallback)
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const suggestions = ["silicone", "screws 5x50", "cement 25kg", "mdf 18mm"];
   // Simplified placeholder (no quotes)
   const placeholder = "Search materials e.g. silicone or screws 5x50";
+
+  // Fetch official-feed results; fallback to local searchOffers if feeds aren't set
+  useEffect(() => {
+    let ignore = false;
+    async function run() {
+      const q = String(query || "").trim();
+      if (!q) { setResults([]); return; }
+      setLoading(true); setError("");
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const offers = Array.isArray(json.offers) ? json.offers : [];
+        const data = offers.length ? offers : searchOffers(q); // local fallback
+        if (!ignore) setResults(data);
+      } catch (_) {
+        const data = searchOffers(String(query || "")); // local fallback on error
+        if (!ignore) { setResults(data); setError("Using local data while feeds are offline."); }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    run();
+    return () => { ignore = true; };
+  }, [query]);
 
   return (
     <div className="min-h-screen w-full bg-gray-50">
@@ -266,6 +290,9 @@ export default function App() {
 
       {/* Results */}
       <main className="mx-auto max-w-4xl px-4 py-6">
+        {loading && <div className="mt-2 text-sm text-gray-500">Loading offers…</div>}
+        {error && <div className="mt-2 text-sm text-amber-600">{error}</div>}
+
         {query ? (
           results.length ? (
             <>
@@ -274,7 +301,7 @@ export default function App() {
               </div>
               <div className="grid gap-3">
                 {results.map((o) => (
-                  <ResultCard key={o.id} offer={o} />
+                  <ResultCard key={o.id ?? `${o.merchant}-${o.product}-${o.price}`} offer={o} />
                 ))}
               </div>
               <p className="mt-4 text-xs text-gray-500">Demo data for illustration only. In production, prices update live and include stock/collection info.</p>
