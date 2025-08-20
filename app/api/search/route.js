@@ -1,15 +1,15 @@
 // app/api/search/route.js
 export const runtime = "nodejs";
 
-// Uses your merchants switchboard at lib/adapters/merchants.json
 import merchantsCfg from "@/lib/adapters/merchants.json";
 
-// Import all known adapters; enable/disable via merchants.json
 import { search as toolstation } from "@/lib/adapters/toolstation";
 import { search as jewson } from "@/lib/adapters/jewson";
 import { search as travis } from "@/lib/adapters/travis";
 import { search as bq } from "@/lib/adapters/bq";
 import { search as screwfix } from "@/lib/adapters/screwfix";
+
+import { parseQuery } from "@/lib/search/parse";
 
 // Registry maps merchant names in merchants.json to adapter functions
 const registry = {
@@ -57,8 +57,9 @@ export async function GET(req) {
   const debugMode = searchParams.get("debug") === "1";
   if (!qRaw) return Response.json({ offers: [] });
 
-  // For now we forward the raw query; in Step 3 we'll drop in parseQuery()
-  const q = qRaw;
+  // Parse & normalize the query (e.g., "6mm drill bit" → normalized tokens)
+  const parsed = parseQuery(qRaw);
+  const q = parsed.normalized;
 
   // Build enabled adapters list from merchants.json
   const defs = (merchantsCfg?.merchants || [])
@@ -66,7 +67,7 @@ export async function GET(req) {
     .map((m) => ({ name: m.name, env: m.env, fn: registry[m.name] }))
     .filter((d) => typeof d.fn === "function");
 
-  // Cache key depends on query + which adapters are enabled
+  // Cache key depends on normalized query + which adapters are enabled
   const key = JSON.stringify({ q, adapters: defs.map((d) => d.name).sort() });
   if (!debugMode) {
     const cached = getCache(key);
@@ -115,5 +116,3 @@ export async function GET(req) {
   if (!debugMode) setCache(key, payload);
   return Response.json(payload);
 }
-
-
