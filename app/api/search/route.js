@@ -1,25 +1,50 @@
+// app/api/search/route.js
 export const runtime = "nodejs";
 
-import { search as screwfix } from "@/lib/adapters/screwfix";
-import { search as bq } from "@/lib/adapters/bq";
-import { search as travis } from "@/lib/adapters/travis";
+// Uses your merchants switchboard at lib/adapters/merchants.json
+import merchantsCfg from "@/lib/adapters/merchants.json";
+
+// Import all known adapters; enable/disable via merchants.json
 import { search as toolstation } from "@/lib/adapters/toolstation";
 import { search as jewson } from "@/lib/adapters/jewson";
+import { search as travis } from "@/lib/adapters/travis";
+import { search as bq } from "@/lib/adapters/bq";
+import { search as screwfix } from "@/lib/adapters/screwfix";
 
-// tiny cache
+// Registry maps merchant names in merchants.json to adapter functions
+const registry = {
+  "Toolstation": toolstation,
+  "Jewson": jewson,
+  "Travis Perkins": travis,
+  "B&Q": bq,
+  "Screwfix": screwfix,
+};
+
+// --- Tiny in-memory cache (per serverless instance) ---
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const g = globalThis;
 g.__searchCache ??= new Map();
+
 function getCache(key) {
   const hit = g.__searchCache.get(key);
   if (!hit) return null;
-  if (Date.now() - hit.t > CACHE_TTL_MS) { g.__searchCache.delete(key); return null; }
+  if (Date.now() - hit.t > CACHE_TTL_MS) {
+    g.__searchCache.delete(key);
+    return null;
+  }
   return hit.v;
 }
-function setCache(key, v) { g.__searchCache.set(key, { v, t: Date.now() }); }
+function setCache(key, v) {
+  g.__searchCache.set(key, { v, t: Date.now() });
+}
 
+// Simple text filter to guard against overly broad adapter results
 function buildFilter(q) {
-  const terms = String(q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = String(q || "")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
   return (text) => {
     const hay = String(text || "").toLowerCase();
     return terms.every((t) => hay.includes(t));
@@ -28,24 +53,28 @@ function buildFilter(q) {
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") || "").trim();
+  const qRaw = (searchParams.get("q") || "").trim();
   const debugMode = searchParams.get("debug") === "1";
+  if (!qRaw) return Response.json({ offers: [] });
 
-  const key = JSON.stringify({ q });
-  const cached = !debugMode && getCache(key);
-  if (cached) return Response.json(cached);
+  // For now we forward the raw query; in Step 3 we'll drop in parseQuery()
+  const q = qRaw;
 
-  if (!q) return Response.json({ offers: [] });
+  // Build enabled adapters list from merchants.json
+  const defs = (merchantsCfg?.merchants || [])
+    .filter((m) => m.enabled)
+    .map((m) => ({ name: m.name, env: m.env, fn: registry[m.name] }))
+    .filter((d) => typeof d.fn === "function");
 
-  const defs = [
-    { name: "Screwfix", fn: screwfix, env: "FEED_SCREWFIX_URL" },
-    { name: "B&Q", fn: bq, env: "FEED_BQ_URL" },
-    { name: "Travis Perkins", fn: travis, env: "FEED_TRAVIS_URL" },
-    { name: "Toolstation", fn: toolstation, env: "FEED_TOOLSTATION_URL" },
-    { name: "Jewson", fn: jewson, env: "FEED_JEWSON_URL" },
-  ];
+  // Cache key depends on query + which adapters are enabled
+  const key = JSON.stringify({ q, adapters: defs.map((d) => d.name).sort() });
+  if (!debugMode) {
+    const cached = getCache(key);
+    if (cached) return Response.json(cached);
+  }
 
-  const settled = await Promise.allSettled(defs.map(d => d.fn({ q })));
+  // Run all enabled adapters in parallel
+  const settled = await Promise.allSettled(defs.map((d) => d.fn({ q })));
 
   let offers = [];
   const dbg = [];
@@ -54,27 +83,37 @@ export async function GET(req) {
     const d = defs[i];
     if (r.status === "fulfilled" && Array.isArray(r.value)) {
       offers = offers.concat(r.value);
-      if (debugMode) dbg.push({
-        adapter: d.name,
-        envPresent: !!process.env[d.env],
-        count: r.value.length,
-        sample: r.value[0] || null,
-      });
+      if (debugMode)
+        dbg.push({
+          adapter: d.name,
+          envPresent: !!process.env[d.env],
+          count: r.value.length,
+          sample: r.value[0] || null,
+        });
     } else {
-      if (debugMode) dbg.push({
-        adapter: d.name,
-        envPresent: !!process.env[d.env],
-        error: String(r.reason || "unknown error"),
-      });
+      if (debugMode)
+        dbg.push({
+          adapter: d.name,
+          envPresent: !!process.env[d.env],
+          error: String(r.reason || "unknown error"),
+        });
     }
   });
 
+  // Safety filter + sort by price asc
   const filter = buildFilter(q);
-  const matches = offers.filter(o => filter([o.product, o.pack, o.unit, o.merchant].join(" ")));
-  matches.sort((a, b) => a.price - b.price);
+  const matches = offers.filter((o) =>
+    filter([o.product, o.pack, o.unit, o.merchant].join(" "))
+  );
+  matches.sort(
+    (a, b) =>
+      (Number.isFinite(a.price) ? a.price : Infinity) -
+      (Number.isFinite(b.price) ? b.price : Infinity)
+  );
 
   const payload = debugMode ? { offers: matches, debug: dbg } : { offers: matches };
   if (!debugMode) setCache(key, payload);
   return Response.json(payload);
 }
+
 
