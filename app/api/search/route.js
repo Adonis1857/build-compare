@@ -1,3 +1,5 @@
+import { search as toolstation } from "@/lib/adapters/toolstation";
+import { search as jewson } from "@/lib/adapters/jewson";
 export const runtime = "nodejs";
 
 import { search as screwfix } from "@/lib/adapters/screwfix";
@@ -35,7 +37,7 @@ export async function GET(req) {
 
   if (!q) return Response.json({ offers: [] });
 
-  const adapters = [screwfix, bq, travis];
+  const adapters = [screwfix, bq, travis, toolstation, jewson];
   const results = await Promise.allSettled(adapters.map((fn) => fn({ q })));
 
   let offers = [];
