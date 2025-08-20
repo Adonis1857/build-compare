@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Turbo Silicone Clear 310ml",
+    "price": 3.49,
+    "url": "https://merchant.example/product/silicone-clear-310ml",
+    "pack": "310ml",
+    "unit": "per tube",
+    "gtin": "1234567890123",
+    "mpn": "SIL-CL-310"
+  },
+  {
+    "name": "Soudal Purpose Silicone White 300ml",
+    "price": 2.99,
+    "url": "https://merchant.example/product/silicone-white-300ml",
+    "pack": "300ml",
+    "unit": "per tube"
+  }
+]
