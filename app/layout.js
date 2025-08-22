@@ -19,11 +19,17 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        {/* Impact verification meta tag (paste EXACTLY as given) */}
+        <meta
+          name="impact-site-verification"
+          value="14a5ede0-820d-48de-8fd5-a13a44136889"
+        />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>
   );
 }
+
