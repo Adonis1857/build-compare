@@ -11,15 +11,9 @@ function getCookie(req, name) {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
-// non-blocking, optional Supabase logger
-async function logClickSafe(row) {
-  try {
-    const { supa } = await import("@/lib/db"); // only works if lib/db.js exists
-    // fire-and-forget
-    supa.from("clicks").insert(row).then(() => {}).catch(() => {});
-  } catch {
-    // no lib/db.js or envs yet — safely ignore
-  }
+// NO-OP logger for now (so we don't require the Supabase SDK during build)
+async function logClickSafe(/* row */) {
+  // Intentionally empty until @supabase/supabase-js is installed
 }
 
 export async function GET(req) {
@@ -45,7 +39,7 @@ export async function GET(req) {
     let anon = getCookie(req, "bcid");
     if (!anon && typeof crypto?.randomUUID === "function") anon = crypto.randomUUID();
 
-    // log click (doesn't block redirect)
+    // (Temporarily disabled) log click — becomes active once SDK is installed
     logClickSafe({
       merchant: merchant || null,
       to_url: finalUrl,
