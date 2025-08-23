@@ -2,20 +2,23 @@
 import React, { useState, useEffect } from "react";
 
 // ----------------------------------------------------------------------------
-// Minimal MVP: client-side search over a small demo dataset
+// Minimal MVP: client-side search with server API (and local fallback)
+// - Normalises API offers (merchant -> retailer) and sorts by price asc
+// - Routes clicks via /api/click for affiliate + tracking
 // ----------------------------------------------------------------------------
 
 const GBP = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 
 /** @typedef {{
- *  id: string,
- *  productId: string,
+ *  id?: string,
+ *  productId?: string,
  *  product: string,
- *  keywords: string[],
- *  retailer: string,
- *  pack: string,
- *  unit: string,
- *  price: number,
+ *  keywords?: string[],
+ *  retailer?: string,     // UI expects `retailer`
+ *  merchant?: string,     // API might send `merchant`; we normalise to `retailer`
+ *  pack?: string,
+ *  unit?: string,
+ *  price: number | string,
  *  url?: string
  * }} Offer */
 
@@ -162,7 +165,34 @@ const OFFERS = [
   },
 ];
 
-// Pure function so we can test it easily
+// ---------- helpers ----------
+function toNumberPrice(v) {
+  if (typeof v === "number") return v;
+  if (v == null) return NaN;
+  const s = String(v).replace(/[^\d.,-]/g, "").replace(",", ".");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+// Normalise incoming offers (API may use `merchant` instead of `retailer`)
+function normalizeAndSort(offers) {
+  const arr = (offers || []).map((o) => {
+    const retailer = o.retailer || o.merchant || "Unknown";
+    const price = toNumberPrice(o.price);
+    const id = o.id || `${retailer}-${o.product || ""}-${o.url || ""}`;
+    return {
+      ...o,
+      id,
+      retailer,
+      price,
+    };
+  });
+  return arr
+    .filter((o) => Number.isFinite(o.price))
+    .sort((a, b) => a.price - b.price);
+}
+
+// Local fallback (pure function)
 function searchOffers(query, offers = OFFERS) {
   const q = String(query || "").trim().toLowerCase();
   if (!q) return [];
@@ -173,7 +203,6 @@ function searchOffers(query, offers = OFFERS) {
       .toLowerCase();
     return terms.every((t) => hay.includes(t));
   });
-  // Sort by price ascending
   return matches.sort((a, b) => a.price - b.price);
 }
 
@@ -185,10 +214,15 @@ function Badge({ children }) {
   );
 }
 
-function ResultCard({ offer }) {
+function ResultCard({ offer, query }) {
+  const retailer = offer.retailer || offer.merchant || "Unknown";
+  const clickHref = offer.url
+    ? `/api/click?m=${encodeURIComponent(retailer)}&q=${encodeURIComponent(query || "")}&to=${encodeURIComponent(offer.url)}`
+    : "#";
+
   return (
     <a
-      href={offer.url || "#"}
+      href={clickHref}
       target="_blank"
       rel="noreferrer"
       className="block rounded-2xl border p-4 hover:shadow-md transition-shadow bg-white"
@@ -197,10 +231,10 @@ function ResultCard({ offer }) {
         <div>
           <h3 className="text-base font-semibold text-gray-900">{offer.product}</h3>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-            <Badge>{offer.retailer}</Badge>
-            <Badge>{offer.pack}</Badge>
+            <Badge>{retailer}</Badge>
+            {offer.pack ? <Badge>{offer.pack}</Badge> : null}
             <span className="text-gray-400">-</span>
-            <span>{offer.unit}</span>
+            <span>{offer.unit || "each"}</span>
           </div>
         </div>
         <div className="text-right">
@@ -221,7 +255,6 @@ export default function App() {
   const [error, setError] = useState("");
 
   const suggestions = ["silicone", "screws 5x50", "cement 25kg", "mdf 18mm"];
-  // Simplified placeholder (no quotes)
   const placeholder = "Search materials e.g. silicone or screws 5x50";
 
   // Fetch official-feed results; fallback to local searchOffers if feeds aren't set
@@ -229,14 +262,14 @@ export default function App() {
     let ignore = false;
     async function run() {
       const q = String(query || "").trim();
-      if (!q) { setResults([]); return; }
+      if (!q) { setResults([]); setError(""); return; }
       setLoading(true); setError("");
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const offers = Array.isArray(json.offers) ? json.offers : [];
-        const data = offers.length ? offers : searchOffers(q); // local fallback
+        const data = offers.length ? normalizeAndSort(offers) : searchOffers(q); // local fallback
         if (!ignore) setResults(data);
       } catch (_) {
         const data = searchOffers(String(query || "")); // local fallback on error
@@ -301,7 +334,7 @@ export default function App() {
               </div>
               <div className="grid gap-3">
                 {results.map((o) => (
-                  <ResultCard key={o.id ?? `${o.merchant}-${o.product}-${o.price}`} offer={o} />
+                  <ResultCard key={o.id ?? `${(o.retailer||o.merchant)}-${o.product}-${o.price}`} offer={o} query={query} />
                 ))}
               </div>
               <p className="mt-4 text-xs text-gray-500">Demo data for illustration only. In production, prices update live and include stock/collection info.</p>
