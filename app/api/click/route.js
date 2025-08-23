@@ -11,10 +11,8 @@ function getCookie(req, name) {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
-// NO-OP logger for now (so we don't require the Supabase SDK during build)
-async function logClickSafe(/* row */) {
-  // Intentionally empty until @supabase/supabase-js is installed
-}
+// NO-OP logger for now (no Supabase import)
+async function logClickSafe(/* row */) {}
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -26,20 +24,16 @@ export async function GET(req) {
     const u = new URL(to);
     if (!/^https?:$/.test(u.protocol)) throw new Error("bad target");
 
-    // Add first-party UTMs for your own analytics
     u.searchParams.set("utm_source", "buildcompare");
     u.searchParams.set("utm_medium", "affiliate");
     if (merchant) u.searchParams.set("utm_campaign", merchant.toLowerCase().replace(/\s+/g, "-"));
     if (q) u.searchParams.set("utm_term", q);
 
-    // Apply merchant-specific template or global fallback (if configured)
     const finalUrl = withAffiliate(merchant, u.toString());
 
-    // anonymous visitor id cookie (1 year)
     let anon = getCookie(req, "bcid");
     if (!anon && typeof crypto?.randomUUID === "function") anon = crypto.randomUUID();
 
-    // (Temporarily disabled) log click — becomes active once SDK is installed
     logClickSafe({
       merchant: merchant || null,
       to_url: finalUrl,
@@ -51,7 +45,6 @@ export async function GET(req) {
       utm_term: q || null,
     });
 
-    // redirect and set cookie
     const res = Response.redirect(finalUrl, 302);
     if (anon) {
       res.headers.set(
