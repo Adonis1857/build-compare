@@ -2,7 +2,7 @@
   "merchants": [
     { "name": "Toolstation", "env": "FEED_TOOLSTATION_URL", "enabled": true },
     { "name": "Jewson", "env": "FEED_JEWSON_URL", "enabled": false },
-    { "name": "Travis Perkins", "env": "FEED_TRAVIS_URL", "enabled": false },
+    { "name": "Travis Perkins", "env": "FEED_TRAVIS_URL", "enabled": true },
     { "name": "B&Q", "env": "FEED_BQ_URL", "enabled": false },
     { "name": "Screwfix", "env": "FEED_SCREWFIX_URL", "enabled": false }
   ]
