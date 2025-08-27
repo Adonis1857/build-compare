@@ -2,22 +2,12 @@
 export const runtime = "nodejs";
 
 import merchantsCfg from "@/lib/adapters/merchants.json";
-
-import { search as toolstation } from "@/lib/adapters/toolstation";
-import { search as jewson } from "@/lib/adapters/jewson";
 import { search as travis } from "@/lib/adapters/travis";
-import { search as bq } from "@/lib/adapters/bq";
-import { search as screwfix } from "@/lib/adapters/screwfix";
-
 import { parseQuery } from "@/lib/search/parse";
 
 // Registry maps merchant names in merchants.json to adapter functions
 const registry = {
-  "Toolstation": toolstation,
-  "Jewson": jewson,
   "Travis Perkins": travis,
-  "B&Q": bq,
-  "Screwfix": screwfix,
 };
 
 // --- Tiny in-memory cache (per serverless instance) ---
@@ -40,11 +30,7 @@ function setCache(key, v) {
 
 // Simple text filter to guard against overly broad adapter results
 function buildFilter(q) {
-  const terms = String(q || "")
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
+  const terms = String(q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   return (text) => {
     const hay = String(text || "").toLowerCase();
     return terms.every((t) => hay.includes(t));
@@ -57,7 +43,6 @@ export async function GET(req) {
   const debugMode = searchParams.get("debug") === "1";
   if (!qRaw) return Response.json({ offers: [] });
 
-  // Parse & normalize the query (e.g., "6mm drill bit" → normalized tokens)
   const parsed = parseQuery(qRaw);
   const q = parsed.normalized;
 
@@ -103,9 +88,7 @@ export async function GET(req) {
 
   // Safety filter + sort by price asc
   const filter = buildFilter(q);
-  const matches = offers.filter((o) =>
-    filter([o.product, o.pack, o.unit, o.merchant].join(" "))
-  );
+  const matches = offers.filter((o) => filter([o.product, o.pack, o.unit, o.merchant].join(" ")));
   matches.sort(
     (a, b) =>
       (Number.isFinite(a.price) ? a.price : Infinity) -
