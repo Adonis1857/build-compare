@@ -1,4 +1,3 @@
-// app/api/search/route.js
 export const runtime = "nodejs";
 
 import merchantsCfg from "@/lib/adapters/merchants.json";
