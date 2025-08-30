@@ -119,3 +119,37 @@ export async function GET(req) {
     return new Response("Invalid URL: " + error.message, { status: 400 });
   }
 }
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const targetUrl = searchParams.get('url');
+  
+  // 🔥 CRITICAL: Add these no-cache headers to fix "immutable" error
+  const headers = {
+    'Cache-Control': 'no-store, max-age=0',
+    'CDN-Cache-Control': 'no-store',
+    'Vercel-CDN-Cache-Control': 'no-store'
+  };
+  
+  try {
+    // Your existing UTM parameter logic - DON'T CHANGE THIS
+    const finalUrl = buildAffiliateUrl(targetUrl);
+    
+    // Return redirect WITH the cache prevention headers
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...headers,
+        'Location': finalUrl,
+      },
+    });
+  } catch (error) {
+    console.error('Error in /api/click:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
