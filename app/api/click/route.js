@@ -68,6 +68,13 @@ export async function GET(req) {
   to = safeDecodeURIComponent(to);
   console.log("Decoded URL:", to);
 
+  // 🔥 CRITICAL: Add these no-cache headers to fix "immutable" error
+  const headers = {
+    'Cache-Control': 'no-store, max-age=0',
+    'CDN-Cache-Control': 'no-store',
+    'Vercel-CDN-Cache-Control': 'no-store'
+  };
+
   try {
     // +++ BASIC VALIDATION: Check if it looks like a valid HTTP/HTTPS URL +++
     if (!to.startsWith('http://') && !to.startsWith('https://')) {
@@ -105,51 +112,25 @@ export async function GET(req) {
       console.error("Database error:", dbError);
     }
 
-    // redirect and set cookie
-    const res = Response.redirect(finalUrl, 302);
-    if (anon) {
-      res.headers.set(
-        "Set-Cookie",
-        `bcid=${encodeURIComponent(anon)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`
-      );
-    }
-    return res;
-  } catch (error) {
-    console.error("Error in /api/click:", error.message);
-    return new Response("Invalid URL: " + error.message, { status: 400 });
-  }
-}
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const targetUrl = searchParams.get('url');
-  
-  // 🔥 CRITICAL: Add these no-cache headers to fix "immutable" error
-  const headers = {
-    'Cache-Control': 'no-store, max-age=0',
-    'CDN-Cache-Control': 'no-store',
-    'Vercel-CDN-Cache-Control': 'no-store'
-  };
-  
-  try {
-    // Your existing UTM parameter logic - DON'T CHANGE THIS
-    const finalUrl = buildAffiliateUrl(targetUrl);
-    
-    // Return redirect WITH the cache prevention headers
-    return new Response(null, {
+    // redirect and set cookie WITH CACHE HEADERS
+    const res = new Response(null, {
       status: 302,
       headers: {
         ...headers,
         'Location': finalUrl,
-      },
+        'Set-Cookie': `bcid=${encodeURIComponent(anon)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`
+      }
     });
+    
+    return res;
   } catch (error) {
-    console.error('Error in /api/click:', error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("Error in /api/click:", error.message);
+    return new Response("Invalid URL: " + error.message, { 
       status: 400,
       headers: {
         ...headers,
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'text/plain'
+      }
     });
   }
 }
