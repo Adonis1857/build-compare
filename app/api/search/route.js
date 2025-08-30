@@ -1,39 +1,27 @@
-export const runtime = "nodejs";
+import { smartSearch } from '@/lib/search/ranked';
+import { generateSearchSuggestions } from '@/lib/search/guide';
 
-import merchantsCfg from "@/lib/adapters/merchants.json";
-import { search as travis } from "@/lib/adapters/travis";
-import { parseQuery } from "@/lib/search/parse";
-
-const registry = { "Travis Perkins": travis };
-
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const qRaw = (searchParams.get("q") || "").trim();
-  const debugMode = searchParams.get("debug") === "1";
-  if (!qRaw) return Response.json({ offers: [] });
-
-  const q = (parseQuery(qRaw)).normalized;
-
-  const defs = (merchantsCfg?.merchants || [])
-    .filter((m) => m.enabled)
-    .map((m) => ({ name: m.name, env: m.env, fn: registry[m.name] }))
-    .filter((d) => typeof d.fn === "function");
-
-  const settled = await Promise.allSettled(defs.map((d) => d.fn({ q })));
-
-  let offers = [];
-  const dbg = [];
-
-  settled.forEach((r, i) => {
-    const d = defs[i];
-    if (r.status === "fulfilled" && Array.isArray(r.value)) {
-      offers = offers.concat(r.value);
-      if (debugMode) dbg.push({ adapter: d.name, envPresent: !!process.env[d.env], count: r.value.length, sample: r.value[0] || null });
-    } else {
-      if (debugMode) dbg.push({ adapter: d.name, envPresent: !!process.env[d.env], error: String(r.reason || "unknown error") });
-    }
-  });
-
-  offers.sort((a, b) => (Number.isFinite(a.price) ? a.price : Infinity) - (Number.isFinite(b.price) ? b.price : Infinity));
-  return Response.json(debugMode ? { offers, debug: dbg } : { offers });
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get('q');
+  
+  if (!q) {
+    return Response.json({ error: 'Missing search query' }, { status: 400 });
+  }
+  
+  try {
+    const results = await smartSearch(q);
+    const suggestions = generateSearchSuggestions(q, results);
+    
+    return Response.json({
+      query: q,
+      results,
+      suggestions,
+      total: results.length
+    });
+    
+  } catch (error) {
+    console.error('Search error:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
