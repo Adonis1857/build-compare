@@ -25,11 +25,14 @@ function genAnonId() {
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const to = searchParams.get("to") || "";
+  let to = searchParams.get("to") || ""; // Use 'let' because we will change it
   const merchant = searchParams.get("m") || "";
   const q = searchParams.get("q") || "";
 
   try {
+    // +++ FIX: Decode the URL before using it! +++
+    to = decodeURIComponent(to); // <-- This is the crucial line we added
+
     const u = new URL(to);
     if (!/^https?:$/.test(u.protocol)) throw new Error("bad target");
 
