@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 
 const GBP = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 
-// ---------- helpers ----------
 function toNumberPrice(v) {
   if (typeof v === "number") return v;
   if (v == null) return NaN;
@@ -12,7 +11,6 @@ function toNumberPrice(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-// Normalise incoming offers (API may use `merchant` instead of `retailer`)
 function normalizeAndSort(offers) {
   const arr = (offers || []).map((o) => {
     const retailer = o.retailer || o.merchant || "Unknown";
@@ -69,8 +67,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const suggestions = ["silicone", "screws 5x50", "cement 25kg", "mdf 18mm"];
-  const placeholder = "Search materials e.g. silicone or screws 5x50";
+  const suggestions = ["silicone", "wrench", "socket", "cement", "mdf"];
+  const placeholder = "Search materials e.g. silicone or wrench";
 
   useEffect(() => {
     let ignore = false;
@@ -160,7 +158,7 @@ export default function App() {
             <p className="font-medium mb-1">How it works</p>
             <ul className="list-disc ml-5 space-y-1 text-sm">
               <li>Type a material in the search bar.</li>
-              <li>We list matching offers from retailers (live data only).</li>
+              <li>We list matching offers from Travis Perkins (live data only).</li>
               <li>Sorted from least expensive to most expensive.</li>
             </ul>
           </div>
