@@ -23,16 +23,35 @@ function genAnonId() {
   return "bc_" + Math.random().toString(36).slice(2, 10);
 }
 
+// +++ NEW FUNCTION: Safely decode a potentially double-encoded URL +++
+function safeDecodeURIComponent(url) {
+  try {
+    // Try to decode the URL
+    let decoded = decodeURIComponent(url);
+    // Check if it still contains encoded characters (meaning it was double-encoded)
+    if (decoded !== decodeURIComponent(decoded)) {
+      // If it does, decode it again
+      decoded = decodeURIComponent(decoded);
+    }
+    return decoded;
+  } catch (error) {
+    // If decoding fails, return the original URL
+    console.warn("Failed to decode URL, using original:", url);
+    return url;
+  }
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  let to = searchParams.get("to") || ""; // Use 'let' because we will change it
+  let to = searchParams.get("to") || "";
   const merchant = searchParams.get("m") || "";
   const q = searchParams.get("q") || "";
 
-  try {
-    // +++ FIX: Decode the URL before using it! +++
-    to = decodeURIComponent(to); // <-- This is the crucial line we added
+  // +++ Use the safe decode function +++
+  to = safeDecodeURIComponent(to);
+  console.log("Decoded URL:", to); // This will help us debug
 
+  try {
     const u = new URL(to);
     if (!/^https?:$/.test(u.protocol)) throw new Error("bad target");
 
@@ -76,7 +95,9 @@ export async function GET(req) {
       );
     }
     return res;
-  } catch {
-    return new Response("Invalid URL", { status: 400 });
+  } catch (error) {
+    // +++ Better error logging +++
+    console.error("Error in /api/click:", error.message);
+    return new Response("Invalid URL: " + error.message, { status: 400 });
   }
 }
