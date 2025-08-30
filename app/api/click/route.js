@@ -52,8 +52,11 @@ export async function GET(req) {
   console.log("Decoded URL:", to); // This will help us debug
 
   try {
-    const u = new URL(to);
-    if (!/^https?:$/.test(u.protocol)) throw new Error("bad target");
+    const originalUrl = new URL(to);
+    if (!/^https?:$/.test(originalUrl.protocol)) throw new Error("bad target");
+
+    // +++ FIX: Create a NEW URL object to avoid the "immutable" error +++
+    const u = new URL(originalUrl.href); // Create a copy of the original URL
 
     // Add first-party UTMs for your own analytics
     u.searchParams.set("utm_source", "buildcompare");
