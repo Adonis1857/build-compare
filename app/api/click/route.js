@@ -23,22 +23,40 @@ function genAnonId() {
   return "bc_" + Math.random().toString(36).slice(2, 10);
 }
 
-// +++ NEW FUNCTION: Safely decode a potentially double-encoded URL +++
 function safeDecodeURIComponent(url) {
   try {
-    // Try to decode the URL
     let decoded = decodeURIComponent(url);
-    // Check if it still contains encoded characters (meaning it was double-encoded)
     if (decoded !== decodeURIComponent(decoded)) {
-      // If it does, decode it again
       decoded = decodeURIComponent(decoded);
     }
     return decoded;
   } catch (error) {
-    // If decoding fails, return the original URL
     console.warn("Failed to decode URL, using original:", url);
     return url;
   }
+}
+
+// +++ NEW FUNCTION: Add UTM parameters manually without using URL object +++
+function addUtmParameters(url, merchant, q) {
+  // Check if the URL already has query parameters
+  const hasExistingParams = url.includes('?');
+  const separator = hasExistingParams ? '&' : '?';
+  
+  // Start building the new URL with UTM parameters
+  let newUrl = url + separator + 'utm_source=buildcompare&utm_medium=affiliate';
+  
+  // Add merchant if available
+  if (merchant) {
+    const campaign = merchant.toLowerCase().replace(/\s+/g, '-');
+    newUrl += '&utm_campaign=' + encodeURIComponent(campaign);
+  }
+  
+  // Add search query if available
+  if (q) {
+    newUrl += '&utm_term=' + encodeURIComponent(q);
+  }
+  
+  return newUrl;
 }
 
 export async function GET(req) {
@@ -47,31 +65,27 @@ export async function GET(req) {
   const merchant = searchParams.get("m") || "";
   const q = searchParams.get("q") || "";
 
-  // +++ Use the safe decode function +++
   to = safeDecodeURIComponent(to);
-  console.log("Decoded URL:", to); // This will help us debug
+  console.log("Decoded URL:", to);
 
   try {
-    const originalUrl = new URL(to);
-    if (!/^https?:$/.test(originalUrl.protocol)) throw new Error("bad target");
+    // +++ BASIC VALIDATION: Check if it looks like a valid HTTP/HTTPS URL +++
+    if (!to.startsWith('http://') && !to.startsWith('https://')) {
+      throw new Error("Invalid URL protocol");
+    }
 
-    // +++ FIX: Create a NEW URL object to avoid the "immutable" error +++
-    const u = new URL(originalUrl.href); // Create a copy of the original URL
-
-    // Add first-party UTMs for your own analytics
-    u.searchParams.set("utm_source", "buildcompare");
-    u.searchParams.set("utm_medium", "affiliate");
-    if (merchant) u.searchParams.set("utm_campaign", merchant.toLowerCase().replace(/\s+/g, "-"));
-    if (q) u.searchParams.set("utm_term", q);
-
-    // Apply merchant-specific template or global fallback (if configured)
-    const finalUrl = withAffiliate(merchant, u.toString());
+    // +++ Add UTM parameters using string manipulation instead of URL object +++
+    let finalUrl = addUtmParameters(to, merchant, q);
+    
+    // Apply merchant-specific affiliate tracking
+    finalUrl = withAffiliate(merchant, finalUrl);
+    console.log("Final URL with UTM and affiliate:", finalUrl);
 
     // anonymous visitor id cookie (1 year)
     let anon = getCookie(req, "bcid");
     if (!anon) anon = genAnonId();
 
-    // fire-and-forget DB insert (don’t block the redirect)
+    // fire-and-forget DB insert
     try {
       supa
         .from("clicks")
@@ -87,7 +101,9 @@ export async function GET(req) {
         })
         .then(() => {})
         .catch(() => {});
-    } catch {}
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+    }
 
     // redirect and set cookie
     const res = Response.redirect(finalUrl, 302);
@@ -99,7 +115,6 @@ export async function GET(req) {
     }
     return res;
   } catch (error) {
-    // +++ Better error logging +++
     console.error("Error in /api/click:", error.message);
     return new Response("Invalid URL: " + error.message, { status: 400 });
   }
