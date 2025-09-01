@@ -1,4 +1,4 @@
-import { travisSearch } from '@/lib/adapters/travis';
+import { search } from '@/lib/adapters/travis';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -9,7 +9,7 @@ export async function GET(request) {
   }
   
   try {
-    const results = await travisSearch(q);
+    const results = await search({ q });
     return Response.json(results);
   } catch (error) {
     console.error('Search error:', error);
