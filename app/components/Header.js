@@ -34,13 +34,13 @@ export default function Header() {
       </div>
 
       {/* Search Bar */}
-      <div className="flex justify-center items-center py-4 px-6 bg-white">
+      <div className="flex justify-center items-center py-6 px-6 bg-white shadow-sm">
         <input
           type="text"
           placeholder="What are you looking for?"
-          className="w-full max-w-2xl px-4 py-2 border rounded-l-full focus:outline-none"
+          className="w-full max-w-2xl px-4 py-3 border rounded-l-full focus:outline-none"
         />
-        <button className="px-5 py-2 bg-teal-600 text-white rounded-r-full hover:bg-teal-700">
+        <button className="px-6 py-3 bg-teal-600 text-white rounded-r-full hover:bg-teal-700">
           🔍
         </button>
       </div>
