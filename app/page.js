@@ -62,13 +62,10 @@ function ResultCard({ offer, query }) {
 }
 
 export default function App() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState("");   // ✅ still tracks query
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const suggestions = ["silicone", "wrench", "socket", "cement", "mdf"];
-  const placeholder = "Search materials e.g. silicone or wrench";
 
   useEffect(() => {
     let ignore = false;
@@ -95,41 +92,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-        <div className="mx-auto max-w-4xl px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gray-900 text-white px-2 py-1 text-xs font-semibold">BuildCompare</div>
-            <h1 className="text-base font-semibold text-gray-800">UK Building Materials Price Search</h1>
-          </div>
-
-          <div className="mt-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder={placeholder}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full rounded-2xl border px-4 py-3 pr-12 text-base outline-none focus:ring-2 focus:ring-gray-900"
-              />
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">Ctrl+K</div>
-            </div>
-            {!query && (
-              <div className="mt-2 text-sm text-gray-600">
-                Try: {suggestions.map((s, i) => (
-                  <button
-                    key={s}
-                    onClick={() => setQuery(s)}
-                    className="underline decoration-dotted hover:text-gray-900 mr-2"
-                  >
-                    {s}{i < suggestions.length - 1 ? "," : ""}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* ✅ Header removed — now handled by components/Header.js */}
 
       {/* Results */}
       <main className="mx-auto max-w-4xl px-4 py-6">
